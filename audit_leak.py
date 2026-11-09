@@ -40,7 +40,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 __version__ = "1.0.0"
 
@@ -54,7 +54,7 @@ DEFAULT_IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp")
 DEFAULT_TEST_VALUES = ("0", "false", "no", "test", "val", "eval", "n")
 
 
-def norm_path(path: os.PathLike[str] | str) -> str:
+def norm_path(path: Union[os.PathLike, str]) -> str:
     """Return a case-normalised absolute path string for set comparison."""
     return os.path.normcase(os.path.normpath(str(Path(path).resolve())))
 
