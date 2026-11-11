@@ -1,25 +1,25 @@
 # image-leakage-audit
 
-`audit_leak.py` detects a **code-level, image-level leakage** that is invisible to image-similarity checks:
+`audit_leak.py` 用于检测一种**代码层面、图像级**、且图像相似性检查无法发现的泄漏：
 
-> A directory-based loader reads every image under a physical training directory, while the train/test membership of each image is maintained by a separate split file. If an evaluation-class directory is placed under the training tree, its evaluation images are read into training and memorised. No duplicate image exists, and the split file itself remains self-consistent.
+> 目录式加载器会读取物理训练目录下的全部图像，而每张图像的训练/测试归属由另一套划分文件维护。如果某个评测类的目录被放在训练目录树下，其评测图就会被读入训练并被模型记住。此时没有重复图像，划分文件本身也保持自洽。
 
-The audit therefore compares:
+因此，审计比较两个集合：
 
-- **declared test set**: rows in a split CSV with a test value (default `is_train=0`) and a class in the evaluation-class list;
-- **actual readable set**: all image files under the training directory that a directory-based loader can read.
+- **声明测试集**：划分 CSV 中测试值（默认 `is_train=0`）且类别属于评测类列表的样本；
+- **实际读取集**：训练目录下目录式加载器能够读取的全部图像文件。
 
-If the intersection is non-empty, the evaluation images can enter training even though no image file is duplicated.
+两者交集非空，即说明评测图进入了训练集，即使没有任何图像文件重复。
 
-This is the reference implementation for the paper **“目录式加载导致的图像级泄漏与审计”** (Image-Level Leakage Caused by Directory-Based Loading and Its Audit).
+本仓库是论文《目录式加载导致的图像级泄漏及其审计》的参考实现。
 
-## Requirements
+## 环境要求
 
 - Python **3.8+**
-- **No third-party dependencies** (standard library only)
-- Works on Linux, macOS and Windows
+- **无第三方依赖**（仅使用标准库）
+- 支持 Linux、macOS 和 Windows
 
-## Quick start
+## 快速开始
 
 ```bash
 git clone https://github.com/chkka1/image-leakage-audit.git
@@ -32,9 +32,9 @@ python audit_leak.py \
   --eval-classes data/CUB_200_2011/eval_classes.txt
 ```
 
-The script prints a summary and exits with code **0**, **2** or **3**.
+脚本会打印检查摘要，并以 **0**、**2** 或 **3** 退出。
 
-### Example output (leak)
+### 示例输出（存在泄漏）
 
 ```text
 == image-level leakage audit ==
@@ -54,19 +54,19 @@ training-class hold-out : 0
 exit code: 2
 ```
 
-For CI, use `--json`:
+在 CI 中可使用 `--json`：
 
 ```bash
 python audit_leak.py ... --json
 ```
 
-and check the exit code or the `status` field.
+然后检查退出码或输出中的 `status` 字段。
 
-## Input format
+## 输入格式
 
-### Split CSV
+### 划分 CSV
 
-A header is required. By default the script expects:
+必须有表头。默认要求以下列：
 
 ```csv
 path,is_train,class_id
@@ -75,83 +75,83 @@ images/novel/002.Laysan_Albatross/Laysan_Albatross_0001_545.jpg,0,002.Laysan_Alb
 images/base/001.Black_footed_Albatross/train_0001.jpg,1,001.Black_footed_Albatross
 ```
 
-- `path` — image path, absolute or relative. Relative paths are resolved against `--path-root`.
-- `is_train` — `1`/`0` or `train`/`test`; values in `--test-values` mean **test/eval**.
-- `class_id` — class name. If the CSV has no class column, pass `--class-col ""` and the class is inferred from the image's parent directory.
+- `path`：图像路径，绝对路径或相对路径。相对路径按 `--path-root` 解析。
+- `is_train`：`1`/`0` 或 `train`/`test`；取值属于 `--test-values` 时表示**测试/评测**。
+- `class_id`：类别名。如果 CSV 没有类别列，可传 `--class-col ""`，此时类别从图像所在父目录推断。
 
-Column names can be changed:
+列名可以修改：
 
 ```bash
 --path-col image_path --split-col split --class-col label
 ```
 
-### Evaluation classes
+### 评测类列表
 
-`--eval-classes` accepts either:
+`--eval-classes` 支持两种形式：
 
-- a file with one class name per line, or
-- a comma-separated list: `--eval-classes "001.Black_footed_Albatross,002.Laysan_Albatross"`.
+- 文件：每行一个类名；
+- 逗号分隔的列表：`--eval-classes "001.Black_footed_Albatross,002.Laysan_Albatross"`。
 
-### Training directory
+### 训练目录
 
-`--train-dir` is the directory a training loader actually reads, for example `images/base` in CUB-200-2011. The script walks it recursively and treats the **first path component** under `--train-dir` as the class directory.
+`--train-dir` 是训练加载器实际读取的目录，例如 CUB-200-2011 中的 `images/base`。脚本会递归遍历该目录，并把 `--train-dir` 下的**第一级路径分量**视为类目录。
 
-For the CUB example, `--train-dir data/CUB_200_2011/images/base`, `--path-root data/CUB_200_2011`, and CSV paths like `images/base/001.../xxx.jpg` resolve to the same absolute paths.
+以 CUB 为例，`--train-dir data/CUB_200_2011/images/base`、`--path-root data/CUB_200_2011`，以及 CSV 中形如 `images/base/001.../xxx.jpg` 的路径会解析到同一绝对路径。
 
-> The audit only reads file names and paths. It does **not** read image pixels and does not need the image content, so it is cheap enough to run before every training job.
+> 本检查只读取文件名和路径，**不读取图像像素**，也不需要图像内容，因此开销很低，可以在每次训练前运行。
 
-## Exit codes
+## 退出码
 
-| Code | Meaning |
+| 退出码 | 含义 |
 |---|---|
-| **0** | No declared test image is readable from the training directory. |
-| **2** | **Leak**: at least one evaluation-class test image is readable from the training directory. |
-| **3** | No eval-class leak, but test images belonging to training classes are readable from the training directory (the training-class hold-out is also contaminated). |
-| **1** | Input/IO error (missing file, bad column, etc.). |
+| **0** | 训练目录下没有可读的声明测试图像。 |
+| **2** | **存在泄漏**：至少有一张评测类测试图可从训练目录读取。 |
+| **3** | 没有评测类泄漏，但训练类测试图可从训练目录读取（训练类留出集也被污染）。 |
+| **1** | 输入/IO 错误（文件缺失、列名错误等）。 |
 
-Code **2** takes priority over **3** when both are present.
+当同时出现 2 和 3 时，退出码 **2** 优先。
 
-## Options
+## 参数
 
-| Option | Default | Description |
+| 参数 | 默认值 | 说明 |
 |---|---|---|
-| `--train-dir` | required | Training tree the loader reads. |
-| `--split-csv` | required | Split CSV with path + split columns. |
-| `--eval-classes` | required | File or comma-separated eval class names. |
-| `--path-root` | current directory | Root used to resolve relative CSV paths. |
-| `--path-col` | `path` | CSV path column. |
-| `--split-col` | `is_train` | CSV split column. |
-| `--class-col` | `class_id` | CSV class column; `""` infers from the parent directory. |
-| `--image-ext` | `.jpg,.jpeg,.png,.bmp,.tif,.tiff,.webp` | Image extensions treated as readable. |
-| `--test-values` | `0,false,no,test,val,eval,n` | Values in `--split-col` that mean test/eval. |
-| `--json` | off | Print a JSON report only. |
+| `--train-dir` | 必填 | 加载器读取的训练目录树。 |
+| `--split-csv` | 必填 | 包含路径列和划分列的 CSV。 |
+| `--eval-classes` | 必填 | 评测类文件，或逗号分隔的类名。 |
+| `--path-root` | 当前目录 | 解析 CSV 中相对路径的根目录。 |
+| `--path-col` | `path` | CSV 路径列名。 |
+| `--split-col` | `is_train` | CSV 划分列名。 |
+| `--class-col` | `class_id` | CSV 类别列名；设为 `""` 时从父目录推断。 |
+| `--image-ext` | `.jpg,.jpeg,.png,.bmp,.tif,.tiff,.webp` | 视为可读图像的扩展名。 |
+| `--test-values` | `0,false,no,test,val,eval,n` | `--split-col` 中表示测试/评测的取值。 |
+| `--json` | 关闭 | 只输出 JSON 报告。 |
 
-## Reproduce the paper
+## 复现论文
 
-- `docs/cub-field-audit.md` — how to lay out CUB-200-2011 and run the field audit (35/55 classes, 1,046 leaked images).
-- `docs/controlled-experiment.md` — the CIFAR-100 dose-response protocol used in the paper (60/40 class split, 20 support / 20 control / 60 treated, f = 0/25/50/100%, ResNet-18, ConvNeXt-Tiny at f = 0/100%).
+- `docs/cub-field-audit.md`：如何组织 CUB-200-2011 并运行现场审计（35/55 类、1046 张泄漏图）。
+- `docs/controlled-experiment.md`：论文使用的 CIFAR-100 剂量-反应实验协议（60/40 类划分，20 张支撑集 / 20 张对照 / 60 张处理，f = 0/25/50/100%，ResNet-18，ConvNeXt-Tiny 取 f = 0/100%）。
 
-The datasets are **not** redistributed here. Download them from their official pages and follow their licences:
+数据集**不随仓库分发**。请从官方页面下载，并遵守各自许可：
 
-- CUB-200-2011: <https://www.vision.caltech.edu/datasets/cub_200_2011/>
-- CIFAR-100: <https://www.cs.toronto.edu/~kriz/cifar.html>
+- CUB-200-2011：<https://www.vision.caltech.edu/datasets/cub_200_2011/>
+- CIFAR-100：<https://www.cs.toronto.edu/~kriz/cifar.html>
 
-## Tests
+## 测试
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-The tests create a synthetic directory tree only; no real images are needed. They cover exit codes 0, 2 and 3 and the JSON output.
+测试只创建合成目录树，不需要真实图像；覆盖退出码 0、2、3 以及 JSON 输出。
 
-## Licence
+## 许可证
 
-MIT — see [`LICENSE`](LICENSE).
+MIT，详见 [`LICENSE`](LICENSE)。
 
-## Citation
+## 引用
 
-If this script helps your work, please cite the paper (details will be added after publication):
+如果本脚本对你的工作有帮助，请引用论文（发表后补充卷期页码）：
 
 ```text
-常开开, 罗小龙, 相龙伟. 目录式加载导致的图像级泄漏与审计[J]. 科技视界, 2026.
+常开开, 罗小龙, 相龙伟. 目录式加载导致的图像级泄漏及其审计[J]. 科技视界, 2026.
 ```
